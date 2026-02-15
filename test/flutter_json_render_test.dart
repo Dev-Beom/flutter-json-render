@@ -142,4 +142,49 @@ void main() {
       expect(find.text('Now Visible'), findsOneWidget);
     },
   );
+
+  testWidgets('Row component supports wrap overflow strategy', (tester) async {
+    final spec = JsonRenderSpec.fromJson({
+      'root': 'root',
+      'elements': {
+        'root': {
+          'type': 'Row',
+          'props': {'spacing': 8, 'runSpacing': 8, 'overflow': 'wrap'},
+          'children': ['a', 'b', 'c'],
+        },
+        'a': {
+          'type': 'Button',
+          'props': {'label': 'Very long button A'},
+        },
+        'b': {
+          'type': 'Button',
+          'props': {'label': 'Very long button B'},
+        },
+        'c': {
+          'type': 'Button',
+          'props': {'label': 'Very long button C'},
+        },
+      },
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            child: JsonRenderer(
+              spec: spec,
+              registry: defineRegistry(components: standardComponentBuilders()),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(Wrap), findsOneWidget);
+    expect(find.text('Very long button A'), findsOneWidget);
+    expect(find.text('Very long button B'), findsOneWidget);
+    expect(find.text('Very long button C'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

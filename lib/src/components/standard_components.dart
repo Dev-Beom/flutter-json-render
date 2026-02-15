@@ -38,6 +38,16 @@ final Map<String, JsonComponentDefinition> standardComponentDefinitions =
         description: 'Horizontal layout for children widgets.',
         props: <String, JsonPropDefinition>{
           'spacing': JsonPropDefinition(type: 'number', defaultValue: 0),
+          'runSpacing': JsonPropDefinition(
+            type: 'number',
+            description: 'Used when overflow is set to "wrap".',
+          ),
+          'overflow': JsonPropDefinition(
+            type: 'string',
+            enumValues: <String>['row', 'wrap', 'scroll'],
+            defaultValue: 'row',
+            description: 'How to handle narrow widths.',
+          ),
           'mainAxisAlignment': JsonPropDefinition(type: 'string'),
           'crossAxisAlignment': JsonPropDefinition(type: 'string'),
           'mainAxisSize': JsonPropDefinition(
@@ -135,14 +145,31 @@ Map<String, JsonComponentBuilder> standardComponentBuilders() {
     },
     'Row': (context) {
       final spacing = _toDouble(context.props['spacing']) ?? 0;
+      final overflow = _parseRowOverflow(context.props['overflow']);
+
+      if (overflow == _RowOverflowBehavior.wrap) {
+        return Wrap(
+          spacing: spacing,
+          runSpacing: _toDouble(context.props['runSpacing']) ?? spacing,
+          alignment: _parseWrapAlignment(context.props['mainAxisAlignment']),
+          crossAxisAlignment: _parseWrapCrossAlignment(
+            context.props['crossAxisAlignment'],
+          ),
+          children: context.children,
+        );
+      }
+
       final children = _withSpacing(
         context.children,
         spacing: spacing,
         axis: Axis.horizontal,
       );
 
-      return Row(
-        mainAxisSize: _parseMainAxisSize(context.props['mainAxisSize']),
+      final row = Row(
+        // Horizontal scroll views provide unconstrained width, so max is invalid.
+        mainAxisSize: overflow == _RowOverflowBehavior.scroll
+            ? MainAxisSize.min
+            : _parseMainAxisSize(context.props['mainAxisSize']),
         mainAxisAlignment: _parseMainAxisAlignment(
           context.props['mainAxisAlignment'],
         ),
@@ -151,6 +178,15 @@ Map<String, JsonComponentBuilder> standardComponentBuilders() {
         ),
         children: children,
       );
+
+      if (overflow == _RowOverflowBehavior.scroll) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: row,
+        );
+      }
+
+      return row;
     },
     'Container': (context) {
       final width = _toDouble(context.props['width']);
@@ -464,4 +500,45 @@ int? _toInt(dynamic raw) {
   if (raw is int) return raw;
   if (raw is num) return raw.toInt();
   return int.tryParse(raw?.toString() ?? '');
+}
+
+enum _RowOverflowBehavior { row, wrap, scroll }
+
+_RowOverflowBehavior _parseRowOverflow(dynamic raw) {
+  switch (raw?.toString()) {
+    case 'wrap':
+      return _RowOverflowBehavior.wrap;
+    case 'scroll':
+      return _RowOverflowBehavior.scroll;
+    default:
+      return _RowOverflowBehavior.row;
+  }
+}
+
+WrapAlignment _parseWrapAlignment(dynamic raw) {
+  switch (raw?.toString()) {
+    case 'end':
+      return WrapAlignment.end;
+    case 'center':
+      return WrapAlignment.center;
+    case 'spaceBetween':
+      return WrapAlignment.spaceBetween;
+    case 'spaceAround':
+      return WrapAlignment.spaceAround;
+    case 'spaceEvenly':
+      return WrapAlignment.spaceEvenly;
+    default:
+      return WrapAlignment.start;
+  }
+}
+
+WrapCrossAlignment _parseWrapCrossAlignment(dynamic raw) {
+  switch (raw?.toString()) {
+    case 'end':
+      return WrapCrossAlignment.end;
+    case 'center':
+      return WrapCrossAlignment.center;
+    default:
+      return WrapCrossAlignment.start;
+  }
 }

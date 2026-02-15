@@ -583,7 +583,11 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
             },
             'buttons': <String, dynamic>{
               'type': 'Row',
-              'props': <String, dynamic>{'spacing': 8},
+              'props': <String, dynamic>{
+                'spacing': 8,
+                'runSpacing': 8,
+                'overflow': 'wrap',
+              },
               'children': <String>['dec', 'inc', 'toggle'],
             },
             'dec': <String, dynamic>{
@@ -656,7 +660,11 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
             },
             'line': <String, dynamic>{
               'type': 'Row',
-              'props': <String, dynamic>{'spacing': 8},
+              'props': <String, dynamic>{
+                'spacing': 8,
+                'runSpacing': 8,
+                'overflow': 'wrap',
+              },
               'children': <String>[
                 'name',
                 'doneChip',

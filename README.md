@@ -147,6 +147,26 @@ if (!result.isValid) {
 - `Button`
 - `Image`
 
+`Row` overflow strategy:
+
+- `overflow: "row"` (default): normal `Row`
+- `overflow: "wrap"`: uses `Wrap` to avoid horizontal overflow
+- `overflow: "scroll"`: horizontal scroll container
+
+Example:
+
+```json
+{
+  "type": "Row",
+  "props": {
+    "spacing": 8,
+    "runSpacing": 8,
+    "overflow": "wrap"
+  },
+  "children": ["a", "b", "c"]
+}
+```
+
 ## Example App
 
 A full multi-scenario showcase app is included in `/example`:
