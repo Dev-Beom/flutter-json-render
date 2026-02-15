@@ -13,6 +13,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     steps:
       - name: Checkout
@@ -36,8 +37,15 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Verify OIDC is available
+        run: |
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]; then
+            echo "OIDC token endpoint is not available. Check workflow permissions."
+            exit 1
+          fi
+
       - name: Validate package
         run: flutter pub publish --dry-run
 
       - name: Publish package
-        run: flutter pub publish -f
+        run: timeout 10m flutter pub publish -f
