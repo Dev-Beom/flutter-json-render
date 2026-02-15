@@ -1,0 +1,28 @@
+name: flutter_json_render
+description: "Guardrailed JSON-to-Widget renderer for Flutter and Dart."
+version: 0.2.0
+homepage: "https://github.com/leeyoungbeom/flutter-json-render"
+repository: "https://github.com/leeyoungbeom/flutter-json-render"
+issue_tracker: "https://github.com/leeyoungbeom/flutter-json-render/issues"
+documentation: "https://github.com/leeyoungbeom/flutter-json-render#readme"
+topics:
+  - flutter
+  - json-ui
+  - dynamic-ui
+  - widget-rendering
+  - llm-ui
+
+environment:
+  sdk: ^3.8.1
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
