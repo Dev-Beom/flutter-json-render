@@ -1,8 +1,23 @@
 # flutter_json_render
 
+[![pub package](https://img.shields.io/pub/v/flutter_json_render.svg)](https://pub.dev/packages/flutter_json_render)
+[![pub points](https://img.shields.io/pub/points/flutter_json_render)](https://pub.dev/packages/flutter_json_render/score)
+[![pub likes](https://img.shields.io/pub/likes/flutter_json_render)](https://pub.dev/packages/flutter_json_render/score)
+[![Secret Scan](https://github.com/Dev-Beom/flutter-json-render/actions/workflows/secret-scan.yml/badge.svg)](https://github.com/Dev-Beom/flutter-json-render/actions/workflows/secret-scan.yml)
+[![license](https://img.shields.io/github/license/Dev-Beom/flutter-json-render)](LICENSE)
+[![stars](https://img.shields.io/github/stars/Dev-Beom/flutter-json-render?style=social)](https://github.com/Dev-Beom/flutter-json-render/stargazers)
+
 A Flutter-first implementation of the [vercel-labs/json-render](https://github.com/vercel-labs/json-render) concept.
 
 `flutter_json_render` renders flat JSON specs into Flutter widgets through an explicit registry and catalog.
+
+Quick links:
+
+- Package: [pub.dev/flutter_json_render](https://pub.dev/packages/flutter_json_render)
+- Source: [github.com/Dev-Beom/flutter-json-render](https://github.com/Dev-Beom/flutter-json-render)
+- Example app: [`/example`](https://github.com/Dev-Beom/flutter-json-render/tree/main/example)
+
+## Highlights
 
 - Guardrailed component/action model
 - Flat and model-friendly spec shape (`root + elements`)
@@ -16,6 +31,16 @@ A Flutter-first implementation of the [vercel-labs/json-render](https://github.c
 ```bash
 flutter pub add flutter_json_render
 ```
+
+## Table of Contents
+
+- [Core Concepts](#core-concepts)
+- [Quick Start](#quick-start)
+- [Stream JSONL Patches](#stream-jsonl-patches)
+- [Validate Specs](#validate-specs)
+- [Built-In Components](#built-in-components)
+- [Example App](#example-app)
+- [Security Scanning](#security-scanning)
 
 ## Core Concepts
 
