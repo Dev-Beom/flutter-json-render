@@ -234,6 +234,13 @@ flutter test
 dart pub publish --dry-run
 ```
 
+## Security Scanning
+
+GitHub Actions secret scanning is enabled with both `gitleaks` and `trufflehog`.
+
+- Workflow: `.github/workflows/secret-scan.yml`
+- Runs on pull requests, pushes to `main`, weekly schedule, and manual dispatch
+
 ## License
 
 MIT
