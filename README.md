@@ -203,7 +203,7 @@ final catalog = baseCatalog.withStylesFromJson({
 ```
 
 See full style authoring guide:
-- [`docs/custom-style-guide.md`](docs/custom-style-guide.md)
+- [`doc/custom-style-guide.md`](doc/custom-style-guide.md)
 
 ## Stream JSONL Patches
 

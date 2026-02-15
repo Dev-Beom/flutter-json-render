@@ -1,3 +1,24 @@
+## 0.4.0
+
+- Added custom style authoring APIs:
+  - `JsonStyleDefinition.fromJson()`
+  - `JsonStyleDefinition.toJson()`
+  - `JsonStyleDefinition.merge()`
+  - `JsonCatalog.withStyle()`
+  - `JsonCatalog.withStyles()`
+  - `JsonCatalog.withStylesFromJson()`
+- Added style token support to prompt generation for richer LLM guidance.
+- Expanded showcase app:
+  - Runtime custom style creation dialog (`Add Custom Style`)
+  - Startup custom style injection via `CUSTOM_STYLE_JSON`
+  - Auto stream/capture runtime flags for demo recording
+  - New streamed multi-component scenario (`component_stream`)
+- Added custom style guide documentation:
+  - `docs/custom-style-guide.md`
+- Added component-stream GIF demo:
+  - `assets/gifs/component-stream-render.gif`
+- Updated README with custom style usage and streaming GIF examples.
+
 ## 0.3.0
 
 - Added style preset model with `JsonStyleDefinition` and `JsonCatalog.styles`
