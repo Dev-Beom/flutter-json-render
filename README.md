@@ -27,6 +27,7 @@ Quick links:
 - Dynamic prop resolution (`$state`, `$item`, `$index`, `$cond`)
 - Visibility and repeat support
 - Style presets and style-aware prompt generation
+- Custom style creation from JSON tokens
 - JSONL streaming patch compiler for progressive UI updates
 
 ## Install
@@ -39,6 +40,7 @@ flutter pub add flutter_json_render
 
 - [Core Concepts](#core-concepts)
 - [Quick Start](#quick-start)
+- [Custom Styles](#custom-styles)
 - [Stream JSONL Patches](#stream-jsonl-patches)
 - [Validate Specs](#validate-specs)
 - [Built-In Components](#built-in-components)
@@ -164,6 +166,45 @@ final prompt = catalog.prompt(
 );
 ```
 
+## Custom Styles
+
+`JsonStyleDefinition` now supports JSON round-tripping and token maps:
+
+```dart
+final customStyle = JsonStyleDefinition.fromJson({
+  'displayName': 'Aurora',
+  'description': 'Cool dark surface with cyan accents',
+  'guidance': 'Prefer high contrast and compact spacing.',
+  'tokens': {
+    'accent': '#22D3EE',
+    'panelBackground': '#0B1220',
+    'textPrimary': '#E0F2FE',
+  },
+});
+
+final catalog = baseCatalog.withStyle('aurora', customStyle);
+```
+
+Bulk import style maps from API/LLM output:
+
+```dart
+final catalog = baseCatalog.withStylesFromJson({
+  'aurora': {
+    'displayName': 'Aurora',
+    'description': 'Cool dark surface with cyan accents',
+    'guidance': 'Prefer high contrast and compact spacing.',
+    'tokens': {
+      'accent': '#22D3EE',
+      'panelBackground': '#0B1220',
+      'textPrimary': '#E0F2FE',
+    },
+  },
+});
+```
+
+See full style authoring guide:
+- [`docs/custom-style-guide.md`](docs/custom-style-guide.md)
+
 ## Stream JSONL Patches
 
 ```dart
@@ -240,6 +281,8 @@ Included scenarios:
 - Dynamic props via `$cond`
 - Async action flow
 - Streamed JSONL patch simulation
+- Chat-like stream build-up
+- Streamed multi-component build-up (`Text`, `Row`, `Column`, `Container`, `Center`, `SizedBox`, `Button`, custom components)
 
 The example includes a `Style Preset` dropdown and supports startup style selection:
 
@@ -248,11 +291,42 @@ cd example
 flutter run --dart-define=STYLE_PRESET=midnight
 ```
 
+You can also add a custom style at runtime:
+
+- Click `Add Custom Style` and paste a style JSON object.
+- Or boot with `CUSTOM_STYLE_JSON`:
+
+```bash
+cd example
+flutter run \
+  --dart-define=STYLE_PRESET=sunset \
+  --dart-define=CUSTOM_STYLE_JSON='{"id":"aurora","base":"midnight","displayName":"Aurora","description":"Deep blue surface with bright cyan accents.","guidance":"Use high contrast and cool accent colors.","tokens":{"accent":"#22D3EE","panelBackground":"#0B1220","textPrimary":"#E0F2FE"}}'
+```
+
 ### Style Preset Screenshots
 
 | clean | midnight | sunset |
 |---|---|---|
 | ![clean](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-clean.png) | ![midnight](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-midnight.png) | ![sunset](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-sunset.png) |
+
+### Streaming LLM Output Demo (GIF)
+
+JSONL patch stream progressively builds a component-rich interface:
+
+![stream-demo](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/gifs/component-stream-render.gif)
+
+Replay the same capture scenario locally:
+
+```bash
+cd example
+flutter run \
+  --dart-define=STYLE_PRESET=sunset \
+  --dart-define=SCENARIO=component_stream \
+  --dart-define=AUTO_RUN_STREAM=true \
+  --dart-define=AUTO_RUN_DELAY_MS=2200 \
+  --dart-define=STREAM_STEP_DELAY_MS=620 \
+  --dart-define=CAPTURE_MODE=true
+```
 
 ## pub.dev Release Checklist
 

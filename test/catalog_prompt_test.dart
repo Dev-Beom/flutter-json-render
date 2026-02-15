@@ -83,6 +83,7 @@ void main() {
           displayName: 'Clean',
           description: 'Minimal spacing and neutral palette.',
           guidance: 'Prefer subtle borders and lots of whitespace.',
+          tokens: <String, dynamic>{'accent': '#0EA5E9'},
         ),
         'bold': JsonStyleDefinition(
           displayName: 'Bold',
@@ -99,6 +100,7 @@ void main() {
     expect(prompt, contains('Selected style: clean (Clean)'));
     expect(prompt, contains('clean (Clean)'));
     expect(prompt, contains('guidance: Prefer subtle borders'));
+    expect(prompt, contains("tokens: {accent: #0EA5E9}"));
     expect(prompt, contains('Apply selected style "clean" consistently.'));
   });
 }

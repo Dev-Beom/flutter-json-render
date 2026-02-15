@@ -9,6 +9,30 @@ const String _initialStylePresetId = String.fromEnvironment(
   'STYLE_PRESET',
   defaultValue: 'clean',
 );
+const String _initialScenarioId = String.fromEnvironment(
+  'SCENARIO',
+  defaultValue: 'counter',
+);
+const bool _autoRunStream = bool.fromEnvironment(
+  'AUTO_RUN_STREAM',
+  defaultValue: false,
+);
+const bool _captureMode = bool.fromEnvironment(
+  'CAPTURE_MODE',
+  defaultValue: false,
+);
+const int _streamStepDelayMs = int.fromEnvironment(
+  'STREAM_STEP_DELAY_MS',
+  defaultValue: 500,
+);
+const int _autoRunDelayMs = int.fromEnvironment(
+  'AUTO_RUN_DELAY_MS',
+  defaultValue: 700,
+);
+const String _customStyleJson = String.fromEnvironment(
+  'CUSTOM_STYLE_JSON',
+  defaultValue: '',
+);
 
 void main() {
   runApp(const ShowcaseApp());
@@ -22,13 +46,14 @@ class ShowcaseApp extends StatefulWidget {
 }
 
 class _ShowcaseAppState extends State<ShowcaseApp> {
-  late final List<ShowcaseVisualStyle> _styles = kShowcaseStyles;
-  late final JsonCatalog _catalog = _buildCatalog();
+  final List<String> _startupMessages = <String>[];
+
+  late final List<ShowcaseVisualStyle> _styles = _buildStyles();
   late final JsonRegistry _registry = _buildRegistry();
   late final List<ShowcaseCase> _cases = _buildCases();
 
   late ShowcaseVisualStyle _selectedStyle = _findStyle(_initialStylePresetId);
-  late ShowcaseCase _selectedCase = _cases.first;
+  late ShowcaseCase _selectedCase = _findCase(_initialScenarioId);
   late JsonRenderSpec _activeSpec = _selectedCase.spec;
 
   final JsonSpecStreamCompiler _streamCompiler = JsonSpecStreamCompiler();
@@ -37,8 +62,48 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
   final List<String> _eventLog = <String>[];
   bool _isStreaming = false;
 
+  JsonCatalog get _catalog => _buildCatalog();
+
+  @override
+  void initState() {
+    super.initState();
+    _latestState = _activeSpec.state;
+    _eventLog
+      ..add('[system] Scenario: ${_selectedCase.id}')
+      ..add('[system] Style: ${_selectedStyle.id}')
+      ..addAll(_startupMessages);
+
+    if (_autoRunStream && _selectedCase.streamLines.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future<void>.delayed(
+          Duration(milliseconds: _autoRunDelayMs < 0 ? 0 : _autoRunDelayMs),
+          () {
+            if (!mounted || _isStreaming) {
+              return;
+            }
+            _runStreamSimulation();
+          },
+        );
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_captureMode) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'flutter_json_render Showcase',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: _selectedStyle.seedColor,
+          ),
+          useMaterial3: true,
+        ),
+        home: Scaffold(body: _buildPreviewPanel()),
+      );
+    }
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'flutter_json_render Showcase',
@@ -180,6 +245,11 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Run Stream'),
               ),
+              OutlinedButton.icon(
+                onPressed: _showAddCustomStyleDialog,
+                icon: const Icon(Icons.palette_outlined),
+                label: const Text('Add Custom Style'),
+              ),
             ],
           ),
         ),
@@ -295,9 +365,10 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
 
     _streamCompiler.reset(initialSpec: _selectedCase.spec);
 
+    final delayMs = _streamStepDelayMs < 16 ? 16 : _streamStepDelayMs;
     for (final line in _selectedCase.streamLines) {
       if (!mounted) return;
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(Duration(milliseconds: delayMs));
       try {
         final pushed = _streamCompiler.push('$line\n');
         if (!mounted) return;
@@ -321,6 +392,79 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
     });
   }
 
+  Future<void> _showAddCustomStyleDialog() async {
+    final controller = TextEditingController(text: _customStyleTemplate());
+    final theme = Theme.of(context);
+
+    final raw = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Custom Style'),
+          content: SizedBox(
+            width: 520,
+            child: TextField(
+              controller: controller,
+              minLines: 12,
+              maxLines: 24,
+              style: const TextStyle(fontFamily: 'monospace'),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Paste style JSON',
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Apply'),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    if (raw == null) {
+      return;
+    }
+
+    try {
+      final created = _parseCustomStyle(raw);
+      setState(() {
+        final existing = _styles.indexWhere((entry) => entry.id == created.id);
+        if (existing >= 0) {
+          _styles[existing] = created;
+        } else {
+          _styles.add(created);
+        }
+        _selectedStyle = created;
+        _eventLog.add('[style] Applied custom style "${created.id}".');
+      });
+    } on FormatException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Invalid style JSON: ${error.message}'),
+          backgroundColor: theme.colorScheme.errorContainer,
+        ),
+      );
+    }
+  }
+
+  ShowcaseCase _findCase(String caseId) {
+    for (final value in _cases) {
+      if (value.id == caseId) {
+        return value;
+      }
+    }
+    return _cases.first;
+  }
+
   ShowcaseVisualStyle _findStyle(String styleId) {
     for (final style in _styles) {
       if (style.id == styleId) {
@@ -328,6 +472,125 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
       }
     }
     return _styles.first;
+  }
+
+  List<ShowcaseVisualStyle> _buildStyles() {
+    final styles = List<ShowcaseVisualStyle>.of(kShowcaseStyles);
+    if (_customStyleJson.trim().isEmpty) {
+      return styles;
+    }
+
+    try {
+      final custom = _parseCustomStyle(_customStyleJson, knownStyles: styles);
+      final existing = styles.indexWhere((entry) => entry.id == custom.id);
+      if (existing >= 0) {
+        styles[existing] = custom;
+      } else {
+        styles.add(custom);
+      }
+      _startupMessages.add(
+        '[style] Loaded custom style from CUSTOM_STYLE_JSON: ${custom.id}',
+      );
+    } on FormatException catch (error) {
+      _startupMessages.add('[style][error] ${error.message}');
+    } catch (error) {
+      _startupMessages.add(
+        '[style][error] Failed to parse CUSTOM_STYLE_JSON: $error',
+      );
+    }
+    return styles;
+  }
+
+  ShowcaseVisualStyle _parseCustomStyle(
+    String raw, {
+    List<ShowcaseVisualStyle>? knownStyles,
+  }) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      throw const FormatException('Value must be valid JSON.');
+    }
+
+    if (decoded is! Map) {
+      throw const FormatException('Custom style JSON must be an object.');
+    }
+
+    final map = Map<String, dynamic>.from(decoded);
+    final id = map['id']?.toString().trim() ?? '';
+    if (id.isEmpty) {
+      throw const FormatException('Field "id" is required.');
+    }
+
+    final baseId = map['base']?.toString().trim();
+    final baseStyle = _resolveBaseStyle(baseId, knownStyles: knownStyles);
+
+    final styleDefinition = JsonStyleDefinition.fromJson(map);
+    return ShowcaseVisualStyle.fromDefinition(
+      id: id,
+      base: baseStyle,
+      style: styleDefinition,
+    );
+  }
+
+  ShowcaseVisualStyle _resolveBaseStyle(
+    String? baseId, {
+    List<ShowcaseVisualStyle>? knownStyles,
+  }) {
+    final basePool = knownStyles ?? _styles;
+    if (baseId == null || baseId.isEmpty) {
+      return kShowcaseStyles.first;
+    }
+    for (final style in basePool) {
+      if (style.id == baseId) {
+        return style;
+      }
+    }
+    for (final style in kShowcaseStyles) {
+      if (style.id == baseId) {
+        return style;
+      }
+    }
+    throw FormatException('Unknown base style "$baseId".');
+  }
+
+  String _customStyleTemplate() {
+    return const JsonEncoder.withIndent('  ').convert(<String, dynamic>{
+      'id': 'aurora',
+      'base': 'midnight',
+      'displayName': 'Aurora',
+      'description': 'Deep blue surface with bright cyan accents.',
+      'guidance': 'Use high contrast and cool accent colors.',
+      'tokens': <String, dynamic>{
+        'seedColor': '#0EA5E9',
+        'previewBackground': '#020B1A',
+        'panelBackground': '#0B1220',
+        'panelBorder': '#123047',
+        'textPrimary': '#E0F2FE',
+        'accent': '#22D3EE',
+        'trackBackground': '#17314A',
+        'neutralChip': <String, dynamic>{
+          'background': '#102338',
+          'border': '#1E3A5F',
+          'foreground': '#D6EFFF',
+        },
+        'successChip': <String, dynamic>{
+          'background': '#063B2E',
+          'border': '#0F766E',
+          'foreground': '#99F6E4',
+        },
+        'warningChip': <String, dynamic>{
+          'background': '#4A2E05',
+          'border': '#A16207',
+          'foreground': '#FDE68A',
+        },
+        'dangerChip': <String, dynamic>{
+          'background': '#4A0D1B',
+          'border': '#BE123C',
+          'foreground': '#FECDD3',
+        },
+      },
+    });
   }
 
   JsonCatalog _buildCatalog() {
@@ -359,12 +622,7 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
         ),
       },
       styles: {
-        for (final style in _styles)
-          style.id: JsonStyleDefinition(
-            displayName: style.name,
-            description: style.description,
-            guidance: style.promptGuidance,
-          ),
+        for (final style in _styles) style.id: style.toStyleDefinition(),
       },
       actions: <String, JsonActionDefinition>{
         ...standardActionDefinitions,
@@ -955,6 +1213,138 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
           '{"op":"add","path":"/elements/streamPanel/children/2","value":"chip"}',
         ],
       ),
+      ShowcaseCase(
+        id: 'chat_stream',
+        title: '6) Chat Stream Build-Up',
+        description:
+            'Mimics LLM output chunks that progressively build a chat-like UI.',
+        spec: JsonRenderSpec.fromJson(<String, dynamic>{
+          'root': 'chatPanel',
+          'state': <String, dynamic>{'phase': 'starting'},
+          'elements': <String, dynamic>{
+            'chatPanel': <String, dynamic>{
+              'type': 'Panel',
+              'props': <String, dynamic>{'title': 'LLM Chat Stream'},
+              'children': <String>['statusChip', 'messages'],
+            },
+            'statusChip': <String, dynamic>{
+              'type': 'StatusChip',
+              'props': <String, dynamic>{
+                'label': <String, dynamic>{r'$state': '/phase'},
+                'variant': 'warning',
+              },
+            },
+            'messages': <String, dynamic>{
+              'type': 'Column',
+              'props': <String, dynamic>{'spacing': 8},
+              'children': <String>['assistantIntro'],
+            },
+            'assistantIntro': <String, dynamic>{
+              'type': 'Text',
+              'props': <String, dynamic>{
+                'text': 'assistant: waiting for first token...',
+                'fontSize': 16,
+                'fontWeight': '600',
+              },
+            },
+          },
+        }),
+        streamLines: <String>[
+          '{"op":"replace","path":"/state/phase","value":"receiving intent"}',
+          '{"op":"add","path":"/elements/userMsg","value":{"type":"Text","props":{"text":"user: Build a compact analytics card with trend and status.","fontSize":16}}}',
+          '{"op":"add","path":"/elements/messages/children/1","value":"userMsg"}',
+          '{"op":"replace","path":"/state/phase","value":"generating layout"}',
+          '{"op":"add","path":"/elements/assistantMsg","value":{"type":"Text","props":{"text":"assistant: Added title, KPI value, and trend indicator.","fontSize":16,"fontWeight":"600"}}}',
+          '{"op":"add","path":"/elements/messages/children/2","value":"assistantMsg"}',
+          '{"op":"replace","path":"/state/phase","value":"applying patch"}',
+          '{"op":"add","path":"/elements/assistantDone","value":{"type":"StatusChip","props":{"label":"render-ready","variant":"success"}}}',
+          '{"op":"add","path":"/elements/messages/children/3","value":"assistantDone"}',
+          '{"op":"replace","path":"/elements/statusChip/props/variant","value":"success"}',
+          '{"op":"replace","path":"/state/phase","value":"complete"}',
+        ],
+      ),
+      ShowcaseCase(
+        id: 'component_stream',
+        title: '7) Streamed Component Mix',
+        description:
+            'Streams patches that progressively render many component types.',
+        spec: JsonRenderSpec.fromJson(<String, dynamic>{
+          'root': 'mixPanel',
+          'state': <String, dynamic>{
+            'status': 'booting',
+            'progress': 0.12,
+            'showCta': false,
+          },
+          'elements': <String, dynamic>{
+            'mixPanel': <String, dynamic>{
+              'type': 'Panel',
+              'props': <String, dynamic>{'title': 'Component Stream'},
+              'children': <String>['statusRow', 'stack'],
+            },
+            'statusRow': <String, dynamic>{
+              'type': 'Row',
+              'props': <String, dynamic>{'spacing': 8},
+              'children': <String>['statusLabel', 'statusChip'],
+            },
+            'statusLabel': <String, dynamic>{
+              'type': 'Text',
+              'props': <String, dynamic>{'text': 'Status'},
+            },
+            'statusChip': <String, dynamic>{
+              'type': 'StatusChip',
+              'props': <String, dynamic>{
+                'label': <String, dynamic>{r'$state': '/status'},
+                'variant': 'warning',
+              },
+            },
+            'stack': <String, dynamic>{
+              'type': 'Column',
+              'props': <String, dynamic>{'spacing': 10},
+              'children': <String>['progressLabel', 'progressBar'],
+            },
+            'progressLabel': <String, dynamic>{
+              'type': 'Text',
+              'props': <String, dynamic>{
+                'text': 'Progress',
+                'fontSize': 15,
+                'fontWeight': '600',
+              },
+            },
+            'progressBar': <String, dynamic>{
+              'type': 'ProgressBar',
+              'props': <String, dynamic>{
+                'value': <String, dynamic>{r'$state': '/progress'},
+              },
+            },
+          },
+        }),
+        streamLines: <String>[
+          '{"op":"replace","path":"/state/status","value":"receiving schema"}',
+          '{"op":"add","path":"/elements/heroCard","value":{"type":"Container","props":{"padding":12,"radius":12,"borderColor":"#FDBA74","borderWidth":1,"color":"#FFF7ED"},"children":["heroTitle","heroBody"]}}',
+          '{"op":"add","path":"/elements/heroTitle","value":{"type":"Text","props":{"text":"Quarterly Snapshot","fontSize":17,"fontWeight":"700"}}}',
+          '{"op":"add","path":"/elements/heroBody","value":{"type":"Text","props":{"text":"Revenue +12.4%, churn down 1.3pt.","fontSize":14}}}',
+          '{"op":"add","path":"/elements/stack/children/2","value":"heroCard"}',
+          '{"op":"replace","path":"/state/progress","value":0.38}',
+          '{"op":"add","path":"/elements/gapA","value":{"type":"SizedBox","props":{"height":6}}}',
+          '{"op":"add","path":"/elements/stack/children/3","value":"gapA"}',
+          '{"op":"add","path":"/elements/metricsRow","value":{"type":"Row","props":{"spacing":8,"runSpacing":8,"overflow":"wrap"},"children":["metricA","metricB","metricC"]}}',
+          '{"op":"add","path":"/elements/metricA","value":{"type":"Container","props":{"padding":10,"radius":10,"borderColor":"#FDBA74","borderWidth":1},"children":["metricAText"]}}',
+          '{"op":"add","path":"/elements/metricAText","value":{"type":"Text","props":{"text":"Sessions 18.2k"}}}',
+          '{"op":"add","path":"/elements/metricB","value":{"type":"Container","props":{"padding":10,"radius":10,"borderColor":"#FDBA74","borderWidth":1},"children":["metricBText"]}}',
+          '{"op":"add","path":"/elements/metricBText","value":{"type":"Text","props":{"text":"Conversion 6.8%"}}}',
+          '{"op":"add","path":"/elements/metricC","value":{"type":"Container","props":{"padding":10,"radius":10,"borderColor":"#FDBA74","borderWidth":1},"children":["metricCText"]}}',
+          '{"op":"add","path":"/elements/metricCText","value":{"type":"Text","props":{"text":"AOV \$84"}}}',
+          '{"op":"add","path":"/elements/stack/children/4","value":"metricsRow"}',
+          '{"op":"replace","path":"/state/progress","value":0.74}',
+          '{"op":"add","path":"/elements/buttonCenter","value":{"type":"Center","visible":{"\$state":"/showCta","eq":true},"children":["publishBtn"]}}',
+          '{"op":"add","path":"/elements/publishBtn","value":{"type":"Button","props":{"label":"Publish Snapshot"}}}',
+          '{"op":"add","path":"/elements/stack/children/5","value":"buttonCenter"}',
+          '{"op":"replace","path":"/state/showCta","value":true}',
+          '{"op":"replace","path":"/state/progress","value":1}',
+          '{"op":"replace","path":"/elements/statusChip/props/variant","value":"success"}',
+          '{"op":"replace","path":"/state/status","value":"complete"}',
+        ],
+      ),
     ];
   }
 }
@@ -985,6 +1375,26 @@ class ShowcaseChipStyle {
   final Color background;
   final Color border;
   final Color foreground;
+
+  ShowcaseChipStyle copyWith({
+    Color? background,
+    Color? border,
+    Color? foreground,
+  }) {
+    return ShowcaseChipStyle(
+      background: background ?? this.background,
+      border: border ?? this.border,
+      foreground: foreground ?? this.foreground,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'background': _hexOf(background),
+      'border': _hexOf(border),
+      'foreground': _hexOf(foreground),
+    };
+  }
 }
 
 class ShowcaseVisualStyle {
@@ -1006,6 +1416,43 @@ class ShowcaseVisualStyle {
     required this.dangerChip,
   });
 
+  factory ShowcaseVisualStyle.fromDefinition({
+    required String id,
+    required ShowcaseVisualStyle base,
+    required JsonStyleDefinition style,
+  }) {
+    final tokens = style.tokens;
+    return base.copyWith(
+      id: id,
+      name: style.displayName.trim().isEmpty ? id : style.displayName.trim(),
+      description: style.description.trim().isEmpty
+          ? base.description
+          : style.description.trim(),
+      promptGuidance: style.guidance.trim().isEmpty
+          ? base.promptGuidance
+          : style.guidance.trim(),
+      seedColor: _safeColor(tokens['seedColor']?.toString()) ?? base.seedColor,
+      previewBackground:
+          _safeColor(tokens['previewBackground']?.toString()) ??
+          base.previewBackground,
+      panelBackground:
+          _safeColor(tokens['panelBackground']?.toString()) ??
+          base.panelBackground,
+      panelBorder:
+          _safeColor(tokens['panelBorder']?.toString()) ?? base.panelBorder,
+      textPrimary:
+          _safeColor(tokens['textPrimary']?.toString()) ?? base.textPrimary,
+      accent: _safeColor(tokens['accent']?.toString()) ?? base.accent,
+      trackBackground:
+          _safeColor(tokens['trackBackground']?.toString()) ??
+          base.trackBackground,
+      neutralChip: _mergeChip(base.neutralChip, tokens['neutralChip']),
+      successChip: _mergeChip(base.successChip, tokens['successChip']),
+      warningChip: _mergeChip(base.warningChip, tokens['warningChip']),
+      dangerChip: _mergeChip(base.dangerChip, tokens['dangerChip']),
+    );
+  }
+
   final String id;
   final String name;
   final String description;
@@ -1021,6 +1468,63 @@ class ShowcaseVisualStyle {
   final ShowcaseChipStyle successChip;
   final ShowcaseChipStyle warningChip;
   final ShowcaseChipStyle dangerChip;
+
+  ShowcaseVisualStyle copyWith({
+    String? id,
+    String? name,
+    String? description,
+    String? promptGuidance,
+    Color? seedColor,
+    Color? previewBackground,
+    Color? panelBackground,
+    Color? panelBorder,
+    Color? textPrimary,
+    Color? accent,
+    Color? trackBackground,
+    ShowcaseChipStyle? neutralChip,
+    ShowcaseChipStyle? successChip,
+    ShowcaseChipStyle? warningChip,
+    ShowcaseChipStyle? dangerChip,
+  }) {
+    return ShowcaseVisualStyle(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      promptGuidance: promptGuidance ?? this.promptGuidance,
+      seedColor: seedColor ?? this.seedColor,
+      previewBackground: previewBackground ?? this.previewBackground,
+      panelBackground: panelBackground ?? this.panelBackground,
+      panelBorder: panelBorder ?? this.panelBorder,
+      textPrimary: textPrimary ?? this.textPrimary,
+      accent: accent ?? this.accent,
+      trackBackground: trackBackground ?? this.trackBackground,
+      neutralChip: neutralChip ?? this.neutralChip,
+      successChip: successChip ?? this.successChip,
+      warningChip: warningChip ?? this.warningChip,
+      dangerChip: dangerChip ?? this.dangerChip,
+    );
+  }
+
+  JsonStyleDefinition toStyleDefinition() {
+    return JsonStyleDefinition(
+      displayName: name,
+      description: description,
+      guidance: promptGuidance,
+      tokens: <String, dynamic>{
+        'seedColor': _hexOf(seedColor),
+        'previewBackground': _hexOf(previewBackground),
+        'panelBackground': _hexOf(panelBackground),
+        'panelBorder': _hexOf(panelBorder),
+        'textPrimary': _hexOf(textPrimary),
+        'accent': _hexOf(accent),
+        'trackBackground': _hexOf(trackBackground),
+        'neutralChip': neutralChip.toJson(),
+        'successChip': successChip.toJson(),
+        'warningChip': warningChip.toJson(),
+        'dangerChip': dangerChip.toJson(),
+      },
+    );
+  }
 }
 
 const List<ShowcaseVisualStyle> kShowcaseStyles = <ShowcaseVisualStyle>[
@@ -1151,4 +1655,22 @@ Color? _safeColor(String? raw) {
     return Color(int.parse(text, radix: 16));
   }
   return null;
+}
+
+ShowcaseChipStyle _mergeChip(ShowcaseChipStyle base, dynamic raw) {
+  if (raw is! Map) {
+    return base;
+  }
+  final map = Map<String, dynamic>.from(raw);
+  return base.copyWith(
+    background: _safeColor(map['background']?.toString()) ?? base.background,
+    border: _safeColor(map['border']?.toString()) ?? base.border,
+    foreground: _safeColor(map['foreground']?.toString()) ?? base.foreground,
+  );
+}
+
+String _hexOf(Color color) {
+  // ignore: deprecated_member_use
+  final hex = color.value.toRadixString(16).toUpperCase().padLeft(8, '0');
+  return '#${hex.substring(2)}';
 }
