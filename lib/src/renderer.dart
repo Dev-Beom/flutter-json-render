@@ -14,6 +14,7 @@ class JsonRenderer extends StatefulWidget {
     required this.registry,
     this.spec,
     this.state,
+    this.styleId,
     this.loading = false,
     this.placeholder,
     this.onStateChanged,
@@ -23,6 +24,7 @@ class JsonRenderer extends StatefulWidget {
   final JsonRenderSpec? spec;
   final JsonRegistry registry;
   final Map<String, dynamic>? state;
+  final String? styleId;
   final bool loading;
   final Widget? placeholder;
   final ValueChanged<Map<String, dynamic>>? onStateChanged;
@@ -69,9 +71,18 @@ class _JsonRendererState extends State<JsonRenderer> {
       spec: spec,
       key: spec.root,
       element: rootElement,
+      styleId: _resolveStyleId(spec),
       repeatScope: null,
       ancestry: <String>{},
     );
+  }
+
+  String? _resolveStyleId(JsonRenderSpec spec) {
+    final override = widget.styleId;
+    if (override != null && override.isNotEmpty) {
+      return override;
+    }
+    return spec.style;
   }
 
   Map<String, dynamic> _buildInitialState(
@@ -95,6 +106,7 @@ class _JsonRendererState extends State<JsonRenderer> {
     required JsonRenderSpec spec,
     required String key,
     required JsonElement element,
+    required String? styleId,
     required JsonRepeatScope? repeatScope,
     required Set<String> ancestry,
   }) {
@@ -127,6 +139,7 @@ class _JsonRendererState extends State<JsonRenderer> {
         _buildRepeatedChildren(
           spec: spec,
           element: element,
+          styleId: styleId,
           ancestry: nextAncestry,
         ),
       );
@@ -149,6 +162,7 @@ class _JsonRendererState extends State<JsonRenderer> {
             spec: spec,
             key: childKey,
             element: childElement,
+            styleId: styleId,
             repeatScope: repeatScope,
             ancestry: nextAncestry,
           ),
@@ -167,6 +181,7 @@ class _JsonRendererState extends State<JsonRenderer> {
         elementKey: key,
         element: element,
         event: event,
+        styleId: styleId,
         repeatScope: repeatScope,
       );
     }
@@ -178,6 +193,7 @@ class _JsonRendererState extends State<JsonRenderer> {
       children: children,
       emit: emit,
       state: _state,
+      styleId: styleId,
       repeatScope: repeatScope,
       loading: widget.loading,
     );
@@ -193,6 +209,7 @@ class _JsonRendererState extends State<JsonRenderer> {
   List<Widget> _buildRepeatedChildren({
     required JsonRenderSpec spec,
     required JsonElement element,
+    required String? styleId,
     required Set<String> ancestry,
   }) {
     final repeat = element.repeat;
@@ -229,6 +246,7 @@ class _JsonRendererState extends State<JsonRenderer> {
             spec: spec,
             key: childKey,
             element: childElement,
+            styleId: styleId,
             repeatScope: scope,
             ancestry: ancestry,
           ),
@@ -243,6 +261,7 @@ class _JsonRendererState extends State<JsonRenderer> {
     required String elementKey,
     required JsonElement element,
     required String event,
+    required String? styleId,
     required JsonRepeatScope? repeatScope,
   }) {
     final bindings = element.on[event];
@@ -286,6 +305,7 @@ class _JsonRendererState extends State<JsonRenderer> {
         params: params,
         state: deepCopyMap(_state),
         setStateModel: setStateModel,
+        styleId: styleId,
         repeatScope: repeatScope,
       );
 

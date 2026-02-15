@@ -8,6 +8,7 @@ A Flutter-first implementation of the [vercel-labs/json-render](https://github.c
 - Flat and model-friendly spec shape (`root + elements`)
 - Dynamic prop resolution (`$state`, `$item`, `$index`, `$cond`)
 - Visibility and repeat support
+- Style presets and style-aware prompt generation
 - JSONL streaming patch compiler for progressive UI updates
 
 ## Install
@@ -22,6 +23,7 @@ flutter pub add flutter_json_render
 - `JsonRegistry`: maps component type -> Flutter widget builder, action -> handler
 - `JsonRenderer`: renders `JsonRenderSpec` safely
 - `JsonSpecStreamCompiler`: compiles streamed JSONL specs/patches
+- `JsonStyleDefinition`: defines selectable style presets for generation/runtime
 
 ## Quick Start
 
@@ -42,6 +44,18 @@ final catalog = JsonCatalog(
   actions: {
     ...standardActionDefinitions,
     'increment': const JsonActionDefinition(description: 'Increase count'),
+  },
+  styles: {
+    'clean': const JsonStyleDefinition(
+      displayName: 'Clean',
+      description: 'Neutral and productivity-focused',
+      guidance: 'Use subtle borders and restrained color.',
+    ),
+    'midnight': const JsonStyleDefinition(
+      displayName: 'Midnight',
+      description: 'Dark, high-contrast dashboard style',
+      guidance: 'Use compact spacing and bright accents.',
+    ),
   },
 );
 
@@ -100,11 +114,26 @@ Widget app() {
   return MaterialApp(
     home: Scaffold(
       body: Center(
-        child: JsonRenderer(spec: spec, registry: registry),
+        child: JsonRenderer(
+          spec: spec,
+          registry: registry,
+          styleId: 'clean', // runtime-selected style
+        ),
       ),
     ),
   );
 }
+```
+
+Generate style-aware LLM prompts:
+
+```dart
+final prompt = catalog.prompt(
+  options: const JsonPromptOptions(
+    selectedStyleId: 'clean',
+    includeStyles: true,
+  ),
+);
 ```
 
 ## Stream JSONL Patches
@@ -183,6 +212,19 @@ Included scenarios:
 - Dynamic props via `$cond`
 - Async action flow
 - Streamed JSONL patch simulation
+
+The example includes a `Style Preset` dropdown and supports startup style selection:
+
+```bash
+cd example
+flutter run --dart-define=STYLE_PRESET=midnight
+```
+
+### Style Preset Screenshots
+
+| clean | midnight | sunset |
+|---|---|---|
+| ![clean](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-clean.png) | ![midnight](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-midnight.png) | ![sunset](https://raw.githubusercontent.com/Dev-Beom/flutter-json-render/main/assets/screenshots/example-style-sunset.png) |
 
 ## pub.dev Release Checklist
 

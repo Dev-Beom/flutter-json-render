@@ -49,6 +49,19 @@ JsonSpecValidationResult validateSpec(
     );
   }
 
+  if (catalog != null && spec.style != null && spec.style!.isNotEmpty) {
+    if (!catalog.hasStyle(spec.style!)) {
+      issues.add(
+        JsonSpecIssue(
+          message: 'Spec references unknown style "${spec.style}".',
+          severity: strictCatalog
+              ? JsonSpecIssueSeverity.error
+              : JsonSpecIssueSeverity.warning,
+        ),
+      );
+    }
+  }
+
   for (final entry in spec.elements.entries) {
     final key = entry.key;
     final element = entry.value;

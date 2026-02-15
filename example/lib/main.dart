@@ -5,6 +5,11 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_json_render/flutter_json_render.dart';
 
+const String _initialStylePresetId = String.fromEnvironment(
+  'STYLE_PRESET',
+  defaultValue: 'clean',
+);
+
 void main() {
   runApp(const ShowcaseApp());
 }
@@ -17,10 +22,12 @@ class ShowcaseApp extends StatefulWidget {
 }
 
 class _ShowcaseAppState extends State<ShowcaseApp> {
+  late final List<ShowcaseVisualStyle> _styles = kShowcaseStyles;
   late final JsonCatalog _catalog = _buildCatalog();
   late final JsonRegistry _registry = _buildRegistry();
   late final List<ShowcaseCase> _cases = _buildCases();
 
+  late ShowcaseVisualStyle _selectedStyle = _findStyle(_initialStylePresetId);
   late ShowcaseCase _selectedCase = _cases.first;
   late JsonRenderSpec _activeSpec = _selectedCase.spec;
 
@@ -36,7 +43,7 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
       debugShowCheckedModeBanner: false,
       title: 'flutter_json_render Showcase',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0A5B9E)),
+        colorScheme: ColorScheme.fromSeed(seedColor: _selectedStyle.seedColor),
         useMaterial3: true,
       ),
       home: Scaffold(
@@ -66,7 +73,7 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
 
             return Column(
               children: <Widget>[
-                SizedBox(height: 360, child: _buildControlPanel()),
+                SizedBox(height: 420, child: _buildControlPanel()),
                 const Divider(height: 1),
                 Expanded(child: _buildPreviewPanel()),
               ],
@@ -79,14 +86,18 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
 
   Widget _buildControlPanel() {
     final stateText = const JsonEncoder.withIndent('  ').convert(_latestState);
-    final specText = const JsonEncoder.withIndent(
-      '  ',
-    ).convert(_activeSpec.toJson());
+    final specJson = <String, dynamic>{
+      ..._activeSpec.toJson(),
+      'style': _selectedStyle.id,
+    };
+    final specText = const JsonEncoder.withIndent('  ').convert(specJson);
     final promptText = _catalog.prompt(
-      options: const JsonPromptOptions(
+      options: JsonPromptOptions(
         includeProps: true,
         includeExamples: false,
         includeActions: true,
+        includeStyles: true,
+        selectedStyleId: _selectedStyle.id,
       ),
     );
 
@@ -124,6 +135,31 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(_selectedCase.description),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: DropdownButtonFormField<ShowcaseVisualStyle>(
+            value: _selectedStyle,
+            decoration: const InputDecoration(
+              labelText: 'Style Preset',
+              border: OutlineInputBorder(),
+            ),
+            items: _styles
+                .map(
+                  (entry) => DropdownMenuItem<ShowcaseVisualStyle>(
+                    value: entry,
+                    child: Text('${entry.name} (${entry.id})'),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (next) {
+              if (next == null) return;
+              setState(() {
+                _selectedStyle = next;
+                _eventLog.add('[style] ${_selectedStyle.id}');
+              });
+            },
+          ),
         ),
         const SizedBox(height: 8),
         Padding(
@@ -184,8 +220,9 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
   }
 
   Widget _buildPreviewPanel() {
+    final style = _selectedStyle;
     return ColoredBox(
-      color: const Color(0xFFF1F5F9),
+      color: style.previewBackground,
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
@@ -194,13 +231,16 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
             margin: const EdgeInsets.all(16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
+              side: BorderSide(color: style.panelBorder),
             ),
+            color: style.panelBackground,
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: SingleChildScrollView(
                 child: JsonRenderer(
                   spec: _activeSpec,
                   registry: _registry,
+                  styleId: _selectedStyle.id,
                   onStateChanged: (state) {
                     setState(() {
                       _latestState = state;
@@ -238,7 +278,8 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
       _latestState = _activeSpec.state;
       _eventLog
         ..clear()
-        ..add('[system] Scenario reset: ${_selectedCase.title}');
+        ..add('[system] Scenario reset: ${_selectedCase.title}')
+        ..add('[system] Style: ${_selectedStyle.id}');
     });
   }
 
@@ -280,6 +321,15 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
     });
   }
 
+  ShowcaseVisualStyle _findStyle(String styleId) {
+    for (final style in _styles) {
+      if (style.id == styleId) {
+        return style;
+      }
+    }
+    return _styles.first;
+  }
+
   JsonCatalog _buildCatalog() {
     return JsonCatalog(
       components: <String, JsonComponentDefinition>{
@@ -307,6 +357,14 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
             'color': JsonPropDefinition(type: 'string'),
           },
         ),
+      },
+      styles: {
+        for (final style in _styles)
+          style.id: JsonStyleDefinition(
+            displayName: style.name,
+            description: style.description,
+            guidance: style.promptGuidance,
+          ),
       },
       actions: <String, JsonActionDefinition>{
         ...standardActionDefinitions,
@@ -351,13 +409,14 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
       components: <String, JsonComponentBuilder>{
         ...standardComponentBuilders(),
         'Panel': (ctx) {
+          final style = _selectedStyle;
           return Container(
             padding: const EdgeInsets.all(16),
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: style.panelBackground,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: style.panelBorder),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,9 +424,10 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
               children: <Widget>[
                 Text(
                   ctx.props['title']?.toString() ?? 'Panel',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
+                    color: style.textPrimary,
                   ),
                 ),
                 if (ctx.children.isNotEmpty) const SizedBox(height: 12),
@@ -377,8 +437,9 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
           );
         },
         'StatusChip': (ctx) {
+          final style = _selectedStyle;
           final variant = ctx.props['variant']?.toString() ?? 'neutral';
-          final pair = _chipStyle(variant);
+          final pair = _chipStyle(style, variant);
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
@@ -397,13 +458,14 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
           );
         },
         'ProgressBar': (ctx) {
+          final style = _selectedStyle;
           final valueRaw = ctx.props['value'];
           final value = (valueRaw is num ? valueRaw.toDouble() : 0.0).clamp(
             0.0,
             1.0,
           );
           final colorHex = ctx.props['color']?.toString();
-          final color = _safeColor(colorHex) ?? const Color(0xFF0F766E);
+          final color = _safeColor(colorHex) ?? style.accent;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +475,7 @@ class _ShowcaseAppState extends State<ShowcaseApp> {
                 child: LinearProgressIndicator(
                   value: value,
                   minHeight: 12,
-                  backgroundColor: const Color(0xFFE2E8F0),
+                  backgroundColor: style.trackBackground,
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                 ),
               ),
@@ -913,8 +975,8 @@ class ShowcaseCase {
   final List<String> streamLines;
 }
 
-class _ChipStyle {
-  const _ChipStyle({
+class ShowcaseChipStyle {
+  const ShowcaseChipStyle({
     required this.background,
     required this.border,
     required this.foreground,
@@ -925,32 +987,157 @@ class _ChipStyle {
   final Color foreground;
 }
 
-_ChipStyle _chipStyle(String variant) {
+class ShowcaseVisualStyle {
+  const ShowcaseVisualStyle({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.promptGuidance,
+    required this.seedColor,
+    required this.previewBackground,
+    required this.panelBackground,
+    required this.panelBorder,
+    required this.textPrimary,
+    required this.accent,
+    required this.trackBackground,
+    required this.neutralChip,
+    required this.successChip,
+    required this.warningChip,
+    required this.dangerChip,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final String promptGuidance;
+  final Color seedColor;
+  final Color previewBackground;
+  final Color panelBackground;
+  final Color panelBorder;
+  final Color textPrimary;
+  final Color accent;
+  final Color trackBackground;
+  final ShowcaseChipStyle neutralChip;
+  final ShowcaseChipStyle successChip;
+  final ShowcaseChipStyle warningChip;
+  final ShowcaseChipStyle dangerChip;
+}
+
+const List<ShowcaseVisualStyle> kShowcaseStyles = <ShowcaseVisualStyle>[
+  ShowcaseVisualStyle(
+    id: 'clean',
+    name: 'Clean',
+    description: 'Neutral colors and subtle borders for productivity UIs.',
+    promptGuidance:
+        'Use restrained color. Keep spacing balanced and typography straightforward.',
+    seedColor: Color(0xFF0A5B9E),
+    previewBackground: Color(0xFFF1F5F9),
+    panelBackground: Color(0xFFFFFFFF),
+    panelBorder: Color(0xFFE2E8F0),
+    textPrimary: Color(0xFF0F172A),
+    accent: Color(0xFF0F766E),
+    trackBackground: Color(0xFFE2E8F0),
+    neutralChip: ShowcaseChipStyle(
+      background: Color(0xFFE2E8F0),
+      border: Color(0xFFCBD5E1),
+      foreground: Color(0xFF334155),
+    ),
+    successChip: ShowcaseChipStyle(
+      background: Color(0xFFDCFCE7),
+      border: Color(0xFF86EFAC),
+      foreground: Color(0xFF166534),
+    ),
+    warningChip: ShowcaseChipStyle(
+      background: Color(0xFFFEF3C7),
+      border: Color(0xFFFCD34D),
+      foreground: Color(0xFF92400E),
+    ),
+    dangerChip: ShowcaseChipStyle(
+      background: Color(0xFFFEE2E2),
+      border: Color(0xFFFCA5A5),
+      foreground: Color(0xFF991B1B),
+    ),
+  ),
+  ShowcaseVisualStyle(
+    id: 'midnight',
+    name: 'Midnight',
+    description: 'Dark surfaces with cyan accents for data-heavy screens.',
+    promptGuidance:
+        'Prefer strong contrast. Use dark panels, bright accents, and compact spacing.',
+    seedColor: Color(0xFF155E75),
+    previewBackground: Color(0xFF020617),
+    panelBackground: Color(0xFF0F172A),
+    panelBorder: Color(0xFF1E293B),
+    textPrimary: Color(0xFFE2E8F0),
+    accent: Color(0xFF06B6D4),
+    trackBackground: Color(0xFF1E293B),
+    neutralChip: ShowcaseChipStyle(
+      background: Color(0xFF1E293B),
+      border: Color(0xFF334155),
+      foreground: Color(0xFFE2E8F0),
+    ),
+    successChip: ShowcaseChipStyle(
+      background: Color(0xFF052E2B),
+      border: Color(0xFF0F766E),
+      foreground: Color(0xFF99F6E4),
+    ),
+    warningChip: ShowcaseChipStyle(
+      background: Color(0xFF422006),
+      border: Color(0xFFA16207),
+      foreground: Color(0xFFFDE68A),
+    ),
+    dangerChip: ShowcaseChipStyle(
+      background: Color(0xFF450A0A),
+      border: Color(0xFFB91C1C),
+      foreground: Color(0xFFFCA5A5),
+    ),
+  ),
+  ShowcaseVisualStyle(
+    id: 'sunset',
+    name: 'Sunset',
+    description: 'Warm cards with orange and rose accents for marketing feel.',
+    promptGuidance:
+        'Use energetic warm colors, rounded containers, and expressive labels.',
+    seedColor: Color(0xFFEA580C),
+    previewBackground: Color(0xFFFFF7ED),
+    panelBackground: Color(0xFFFFFBF5),
+    panelBorder: Color(0xFFFED7AA),
+    textPrimary: Color(0xFF7C2D12),
+    accent: Color(0xFFEA580C),
+    trackBackground: Color(0xFFFED7AA),
+    neutralChip: ShowcaseChipStyle(
+      background: Color(0xFFFFEDD5),
+      border: Color(0xFFFDBA74),
+      foreground: Color(0xFF9A3412),
+    ),
+    successChip: ShowcaseChipStyle(
+      background: Color(0xFFDCFCE7),
+      border: Color(0xFF86EFAC),
+      foreground: Color(0xFF166534),
+    ),
+    warningChip: ShowcaseChipStyle(
+      background: Color(0xFFFEF3C7),
+      border: Color(0xFFFCD34D),
+      foreground: Color(0xFF92400E),
+    ),
+    dangerChip: ShowcaseChipStyle(
+      background: Color(0xFFFFE4E6),
+      border: Color(0xFFFDA4AF),
+      foreground: Color(0xFF9F1239),
+    ),
+  ),
+];
+
+ShowcaseChipStyle _chipStyle(ShowcaseVisualStyle style, String variant) {
   switch (variant) {
     case 'success':
-      return const _ChipStyle(
-        background: Color(0xFFDCFCE7),
-        border: Color(0xFF86EFAC),
-        foreground: Color(0xFF166534),
-      );
+      return style.successChip;
     case 'warning':
-      return const _ChipStyle(
-        background: Color(0xFFFEF3C7),
-        border: Color(0xFFFCD34D),
-        foreground: Color(0xFF92400E),
-      );
+      return style.warningChip;
     case 'danger':
-      return const _ChipStyle(
-        background: Color(0xFFFEE2E2),
-        border: Color(0xFFFCA5A5),
-        foreground: Color(0xFF991B1B),
-      );
+      return style.dangerChip;
     default:
-      return const _ChipStyle(
-        background: Color(0xFFE2E8F0),
-        border: Color(0xFFCBD5E1),
-        foreground: Color(0xFF334155),
-      );
+      return style.neutralChip;
   }
 }
 

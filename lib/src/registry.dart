@@ -17,6 +17,7 @@ class JsonComponentContext {
     required this.children,
     required this.emit,
     required this.state,
+    this.styleId,
     this.repeatScope,
     this.loading = false,
   });
@@ -27,6 +28,7 @@ class JsonComponentContext {
   final List<Widget> children;
   final void Function(String event) emit;
   final Map<String, dynamic> state;
+  final String? styleId;
   final JsonRepeatScope? repeatScope;
   final bool loading;
 }
@@ -39,6 +41,7 @@ class JsonActionContext {
     required this.params,
     required this.state,
     required this.setStateModel,
+    this.styleId,
     this.repeatScope,
   });
 
@@ -48,6 +51,7 @@ class JsonActionContext {
   final Map<String, dynamic>? params;
   final Map<String, dynamic> state;
   final void Function(JsonStateUpdater updater) setStateModel;
+  final String? styleId;
   final JsonRepeatScope? repeatScope;
 }
 

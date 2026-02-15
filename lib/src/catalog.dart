@@ -44,30 +44,50 @@ class JsonActionDefinition {
   final Map<String, JsonPropDefinition> params;
 }
 
+class JsonStyleDefinition {
+  const JsonStyleDefinition({
+    this.displayName = '',
+    this.description = '',
+    this.guidance = '',
+  });
+
+  final String displayName;
+  final String description;
+  final String guidance;
+}
+
 class JsonPromptOptions {
   const JsonPromptOptions({
     this.includeProps = true,
     this.includeExamples = true,
     this.includeActions = true,
+    this.includeStyles = true,
+    this.selectedStyleId,
   });
 
   final bool includeProps;
   final bool includeExamples;
   final bool includeActions;
+  final bool includeStyles;
+  final String? selectedStyleId;
 }
 
 class JsonCatalog {
   const JsonCatalog({
     this.components = const <String, JsonComponentDefinition>{},
     this.actions = const <String, JsonActionDefinition>{},
+    this.styles = const <String, JsonStyleDefinition>{},
   });
 
   final Map<String, JsonComponentDefinition> components;
   final Map<String, JsonActionDefinition> actions;
+  final Map<String, JsonStyleDefinition> styles;
 
   bool hasComponent(String type) => components.containsKey(type);
 
   bool hasAction(String action) => actions.containsKey(action);
+
+  bool hasStyle(String styleId) => styles.containsKey(styleId);
 
   /// Builds an LLM-friendly system prompt from this catalog.
   String prompt({JsonPromptOptions options = const JsonPromptOptions()}) {
@@ -112,6 +132,48 @@ class JsonCatalog {
       }
     }
 
+    if (options.includeStyles) {
+      buffer.writeln('');
+      buffer.writeln('Styles:');
+      if (styles.isEmpty) {
+        buffer.writeln('- none');
+      } else {
+        final selectedStyleId = options.selectedStyleId;
+        if (selectedStyleId != null) {
+          if (hasStyle(selectedStyleId)) {
+            final selected = styles[selectedStyleId]!;
+            final displayName = selected.displayName.trim().isEmpty
+                ? selectedStyleId
+                : selected.displayName.trim();
+            buffer.writeln('Selected style: $selectedStyleId ($displayName)');
+          } else {
+            buffer.writeln('Selected style: $selectedStyleId (unknown)');
+          }
+        }
+
+        for (final entry in styles.entries) {
+          final styleId = entry.key;
+          final style = entry.value;
+          final displayName = style.displayName.trim();
+          final description = style.description.trim();
+          final guidance = style.guidance.trim();
+
+          if (displayName.isEmpty) {
+            buffer.writeln('- $styleId');
+          } else {
+            buffer.writeln('- $styleId ($displayName)');
+          }
+
+          if (description.isNotEmpty) {
+            buffer.writeln('  description: $description');
+          }
+          if (guidance.isNotEmpty) {
+            buffer.writeln('  guidance: $guidance');
+          }
+        }
+      }
+    }
+
     if (options.includeActions) {
       buffer.writeln('');
       buffer.writeln('Actions:');
@@ -144,6 +206,11 @@ class JsonCatalog {
     buffer.writeln('');
     buffer.writeln('Rules:');
     buffer.writeln('- Use only listed component types and actions.');
+    if (options.selectedStyleId != null) {
+      buffer.writeln(
+        '- Apply selected style "${options.selectedStyleId}" consistently.',
+      );
+    }
     buffer.writeln('- Keep children references valid and acyclic.');
     buffer.writeln('- Prefer concise props; avoid unknown keys.');
 

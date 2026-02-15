@@ -1,3 +1,14 @@
+## 0.3.0
+
+- Added style preset model with `JsonStyleDefinition` and `JsonCatalog.styles`
+- Added style-aware prompt generation via `JsonPromptOptions.selectedStyleId`
+- Added optional spec-level style (`JsonRenderSpec.style`) and style validation in `validateSpec`
+- Added runtime style override support in `JsonRenderer(styleId: ...)`
+- Extended render/action contexts with `styleId`
+- Improved `Row` overflow handling with `overflow: row|wrap|scroll` and `runSpacing`
+- Expanded showcase example with style preset selector (`clean`, `midnight`, `sunset`)
+- Added style screenshots and updated README/pub.dev documentation
+
 ## 0.2.0
 
 - Added JSON Patch support with `JsonPatchOperation`, `JsonPatchOp`, and `applyJsonPatch`

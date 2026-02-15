@@ -72,4 +72,33 @@ void main() {
     expect(prompt, isNot(contains('params:')));
     expect(prompt, isNot(contains('Actions:')));
   });
+
+  test('prompt includes styles and selected style guidance', () {
+    final catalog = JsonCatalog(
+      components: const <String, JsonComponentDefinition>{
+        'Text': JsonComponentDefinition(description: 'Text'),
+      },
+      styles: const <String, JsonStyleDefinition>{
+        'clean': JsonStyleDefinition(
+          displayName: 'Clean',
+          description: 'Minimal spacing and neutral palette.',
+          guidance: 'Prefer subtle borders and lots of whitespace.',
+        ),
+        'bold': JsonStyleDefinition(
+          displayName: 'Bold',
+          description: 'High contrast with strong accents.',
+        ),
+      },
+    );
+
+    final prompt = catalog.prompt(
+      options: const JsonPromptOptions(selectedStyleId: 'clean'),
+    );
+
+    expect(prompt, contains('Styles:'));
+    expect(prompt, contains('Selected style: clean (Clean)'));
+    expect(prompt, contains('clean (Clean)'));
+    expect(prompt, contains('guidance: Prefer subtle borders'));
+    expect(prompt, contains('Apply selected style "clean" consistently.'));
+  });
 }

@@ -6,6 +6,7 @@ void main() {
   test('JsonRenderSpec parses flat JSON format', () {
     final spec = JsonRenderSpec.fromJson({
       'root': 'root',
+      'style': 'clean',
       'state': {'count': 1},
       'elements': {
         'root': {
@@ -20,6 +21,7 @@ void main() {
     });
 
     expect(spec.root, 'root');
+    expect(spec.style, 'clean');
     expect(spec.state['count'], 1);
     expect(spec.elements['title']?.type, 'Text');
   });
@@ -39,6 +41,30 @@ void main() {
     expect(result.isValid, isFalse);
     expect(
       result.issues.any((issue) => issue.message.contains('missing child')),
+      isTrue,
+    );
+  });
+
+  test('validateSpec reports unknown style when catalog is provided', () {
+    final spec = JsonRenderSpec.fromJson({
+      'root': 'root',
+      'style': 'missing-style',
+      'elements': {
+        'root': {'type': 'Column', 'children': []},
+      },
+    });
+
+    final result = validateSpec(
+      spec,
+      catalog: const JsonCatalog(
+        components: {'Column': JsonComponentDefinition()},
+        styles: {'clean': JsonStyleDefinition()},
+      ),
+      strictCatalog: false,
+    );
+
+    expect(
+      result.issues.any((issue) => issue.message.contains('unknown style')),
       isTrue,
     );
   });
@@ -186,5 +212,34 @@ void main() {
     expect(find.text('Very long button B'), findsOneWidget);
     expect(find.text('Very long button C'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('JsonRenderer forwards styleId to component context', (
+    tester,
+  ) async {
+    final spec = JsonRenderSpec.fromJson({
+      'root': 'root',
+      'elements': {
+        'root': {'type': 'StyleEcho'},
+      },
+    });
+
+    final registry = defineRegistry(
+      components: {'StyleEcho': (ctx) => Text(ctx.styleId ?? 'none')},
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: JsonRenderer(
+            spec: spec,
+            registry: registry,
+            styleId: 'midnight',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('midnight'), findsOneWidget);
   });
 }

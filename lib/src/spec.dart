@@ -6,11 +6,13 @@ class JsonRenderSpec {
     required this.root,
     required this.elements,
     this.state = const <String, dynamic>{},
+    this.style,
   });
 
   final String root;
   final Map<String, JsonElement> elements;
   final Map<String, dynamic> state;
+  final String? style;
 
   factory JsonRenderSpec.fromJson(Map<String, dynamic> json) {
     final rawElements = json['elements'];
@@ -27,6 +29,7 @@ class JsonRenderSpec {
         ),
       ),
       state: _toStringDynamicMap(json['state']),
+      style: json['style']?.toString(),
     );
   }
 
@@ -43,6 +46,7 @@ class JsonRenderSpec {
       'root': root,
       'elements': elements.map((key, value) => MapEntry(key, value.toJson())),
       if (state.isNotEmpty) 'state': state,
+      if (style != null && style!.isNotEmpty) 'style': style,
     };
   }
 }
