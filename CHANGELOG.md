@@ -1,3 +1,8 @@
+## 0.4.1
+
+- Switched pub.dev publishing workflow to the official `dart-lang/setup-dart` reusable workflow.
+- Updated publishing trigger strategy for trusted publisher tag-push flow.
+
 ## 0.4.0
 
 - Added custom style authoring APIs:

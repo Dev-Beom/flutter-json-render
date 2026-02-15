@@ -1,6 +1,6 @@
 name: flutter_json_render
 description: "Guardrailed JSON-to-Widget renderer for Flutter and Dart."
-version: 0.4.0
+version: 0.4.1
 homepage: "https://github.com/Dev-Beom/flutter-json-render"
 repository: "https://github.com/Dev-Beom/flutter-json-render"
 issue_tracker: "https://github.com/Dev-Beom/flutter-json-render/issues"
